@@ -1,9 +1,9 @@
-#Titanic Model using Python - An exploration
+# Titanic Model using Python - An exploration
 This is my project to learn how to use Python for data science, with a focus on sklearn, Pandas, and numpy.
 
-##Preprocessing
+## Preprocessing
 
-###Down the Pipeline Rabbit Hole
+### Down the Pipeline Rabbit Hole
 sklearn.pipeline.Pipeline is a powerful tool for automating the data science workflow. It enables cobbling together feature extraction, feature selection, and feature manipulations with models and then perform hyper-parameter tuning with cross validation in a few function calls.
 
 The struggle is that each step happens sequentially with each feature step returning only those features derived in that step. So say you'd like to apply PCA to the numeric features, one hot encoding to the categorical, and then return the 5 highest PCA components, all of the encoded features, and all of the original numeric features. Well, a simple Pipeline won't do that. You might only get the encoded features at the end.
