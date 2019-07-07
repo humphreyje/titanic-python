@@ -10,7 +10,7 @@ import pandas as pd
 import numpy as np
 import seaborn as sb
 import re
-from sklearn.linear_model import LogisticRegression
+from sklearn.linear_model import SGDClassifier
 from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import Pipeline, FeatureUnion
 from sklearn.base import TransformerMixin, BaseEstimator
@@ -72,6 +72,23 @@ class MySelector(TransformerMixin, BaseEstimator):
     def fit(self, X, y = None, **kwargs):
         return(self)
 
+class toDataFrame(TransformerMixin, BaseEstimator):
+    def __init__(self):
+        pass
+    
+    def transform(self, X, **kwargs):
+        return(pd.DataFrame.from_records(X))
+    
+    def fit(self ,X, y = None, **kwargs):
+        return(self)
+
+'''  
+plotOneWayRels(train,"Survived")
+
+for c in train.columns:
+    print(train[c].describe())
+'''
+
 target = "Survived"
 colsToRemove = ['PassengerId','Name','Ticket','Cabin']
 
@@ -83,42 +100,46 @@ oneHotPipe = Pipeline([
         ('oneHotEncoder',ce.OneHotEncoder(handle_unknown='ignore'))
         ])
 
-'''
-featureEng = Pipeline([
-        ('myPreProcess', MyPreProcess())
-        ])
-
-includeType = {"include":"object"}
-
-    
-full_pipeline = Pipeline([
-        ('feat_union', FeatureUnion(transformer_list = [
-                ('preProcess',featureEng),
-                ('oneHotEncode',oneHotPipe)
-                ]))
-        
-        ])
-'''
 preprocessor = Pipeline([
         ('myPreProcess',MyPreProcess())
+        ,('imputeAll',FeatureUnion([
+                ('numericImputePipe',Pipeline([
+                        ('selectNumeric',MySelector(varType={'exclude': 'object'}))
+                        ,('imputeNumeric',SimpleImputer(strategy="mean"))
+                        ,('stdScaler',StandardScaler())
+                        ]))
+                ,('charImputePipe',Pipeline([
+                        ('selectObject',MySelector(varType={'include': 'object'}))
+                        ,('imputeObject',SimpleImputer(strategy="constant",fill_value="missing"))
+                        ]))
+                ]))
+        ,('toPandas',toDataFrame())
         ,('feat_union',FeatureUnion([
                 ('selectNumeric',MySelector(varType={'exclude': 'object'}))
                 ,('dummy',oneHotPipe)
                 ]))
-        
         ]) 
 
-#preprocessor.set_params(feat_union__selectNumeric__varType = {'exclude': 'object'})
-#preprocessor.set_params(feat_union__dummy__select_text__varType = {'include': 'object'})
-    
-  
 train2 = preprocessor.fit_transform(train.copy(),target)
 test2 = preprocessor.transform(test.copy())
+    
+logistic = SGDClassifier(loss='log', penalty = 'elasticnet', 
+                         early_stopping = True, max_iter = 10000,
+                         tol = 1e-5, random_state = 101,
+                         shuffle = True)
 
-'''  
-plotOneWayRels(train,"Survived")
+param_grid = {'l1_ratio': np.arange(0,1,.01),
+              'loss': ['hinge','log','modified_huber','squared_hinge','perceptron']}
 
-for c in train.columns:
-    print(train[c].describe())
-'''
+cvTrain,cvTest,cvTarget,cvTestTarget = train_test_split(train2,target,
+                                                        test_size=0.3,
+                                                        random_state=101)
+logisticClassifier = GridSearchCV(logistic,param_grid,cv=5,
+                                  return_train_score=True)
+logisticClassifier.fit(cvTrain,cvTarget)
+logisticClassifier.predict(cvTest)
+logisticClassifier.best_params_
 
+
+
+cvRes = pd.DataFrame(logisticClassifier.cv_results_)
